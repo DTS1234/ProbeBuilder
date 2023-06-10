@@ -71,9 +71,50 @@
     </div>
 </div>
 
+<div class="row">
+    <h2 class="mx-auto mt-4 mb-4">Jmeter launcher</h2>
+    <div class="col-4">
+        <form id="jmeterForm">
+            <label class="form-label" for="numberOfThreads">Number of Threads:</label>
+            <input class="form-control" type="number" id="numberOfThreads" name="numberOfThreads" required><br>
+
+            <label class="form-label" for="rampUpPeriod">Ramp-Up Period:</label>
+            <input class="form-control" type="number" id="rampUpPeriod" name="rampUpPeriod" required><br>
+
+            <label class="form-label" for="ip">IP:</label>
+            <input class="form-control" type="text" id="ip" name="ip" required><br>
+
+            <label class="form-label" for="port">Port:</label>
+            <input class="form-control" type="number" id="port" name="port" required><br>
+
+            <label class="form-label" for="path">Path:</label>
+            <input class="form-control" type="text" id="path" name="path" required><br>
+
+            <label class="form-label" for="method">Method:</label>
+            <input class="form-control" type="text" id="method" name="method" required><br>
+
+            <label class="form-label" for="body">Body:</label>
+            <textarea class="form-control" id="body" name="body" rows="5" required></textarea><br>
+
+            <button class="btn btn-primary mt-3" type="button" onclick="launchJmeter()">Submit</button>
+        </form>
+    </div>
+    <div class="col-6 mr-4">
+        <table class="table table-bordered">
+            <thead>
+            <tr>
+                <th>Date</th>
+                <th>JTL File</th>
+                <th>JMX File</th>
+            </tr>
+            </thead>
+            <tbody id="results"></tbody>
+        </table>
+    </div>
+</div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
 <script>
 
     document.getElementById("fileForm").addEventListener("submit", function (event) {
@@ -114,6 +155,25 @@
         document.getElementById("testForm").reset();
     });
 
+    function launchJmeter() {
+        var form = document.getElementById("jmeterForm");
+        var formData = new FormData(form);
+
+        var jsonObject = {};
+
+        for (var [key, value] of formData.entries()) {
+            jsonObject[key] = value;
+        }
+
+        var jsonPayload = JSON.stringify(jsonObject);
+
+        var xhr = new XMLHttpRequest();
+
+        xhr.open("POST", "http://localhost:4040/run");
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.send(jsonPayload);
+    }
+
     function generatePayload() {
         // Get the input value
         var fieldsNumber = parseInt(document.getElementById('fieldsNumber').value);
@@ -137,5 +197,44 @@
     }
 
 </script>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function () {
+        // Function to update the results
+        function updateResults() {
+            $.ajax({
+                url: 'http://localhost:4040/results',
+                type: 'GET',
+                success: function (data) {
+                    // Generate HTML table rows dynamically based on the received data
+                    // Generate HTML table rows dynamically based on the received data
+                    var rows = '';
+                    Object.keys(data).forEach(function (key) {
+                        var result = data[key];
+                        rows += '<tr>';
+                        rows += '<td>' + result.date + '</td>';
+                        rows += '<td>' + result.jtlFile + '</td>';
+                        rows += '<td>' + result.jmxFile + '</td>';
+                        rows += '</tr>';
+                    });
+
+                    // Update the HTML table body with the generated rows
+                    $('#results').html(rows);
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error fetching results:', error);
+                }
+            });
+        }
+
+        // Initial call to update results
+        updateResults();
+
+        // Set interval to periodically update the results every 10 seconds
+        setInterval(updateResults, 10000);
+    });
+</script>
+
 </body>
 </html>

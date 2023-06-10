@@ -1,5 +1,6 @@
 package uni.trento.probebuilder.jmeter;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.jmeter.config.Arguments;
 import org.apache.jmeter.config.gui.ArgumentsPanel;
@@ -20,16 +21,26 @@ import org.apache.jmeter.threads.ThreadGroup;
 import org.apache.jmeter.threads.gui.ThreadGroupGui;
 import org.apache.jmeter.util.JMeterUtils;
 import org.apache.jorphan.collections.HashTree;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Random;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class JmeterService {
+
+    private final JmeterRepository repo;
+    public static final String DIR = System.getProperty("user.dir");
 
     public void jmeterStart(JmeterSpecification spec) throws IOException {
 
@@ -52,6 +63,8 @@ public class JmeterService {
             if (existsProperties) {
                 //JMeter Engine
                 StandardJMeterEngine jmeter = new StandardJMeterEngine();
+                int identifier = new Random().nextInt(1000000);
+                String fileName = String.format("test%s", identifier);
 
                 //JMeter initialization (properties, log levels, locale, etc)
                 JMeterUtils.setJMeterHome(jmeterHome.getPath());
@@ -62,44 +75,16 @@ public class JmeterService {
                 HashTree testPlanTree = new HashTree();
 
                 // First HTTP Sampler - open example.com
-                HTTPSamplerProxy sampler = new HTTPSamplerProxy();
-                sampler.setDomain(spec.getIp());
-                sampler.setPort(spec.getPort());
-                sampler.setPath(spec.getPath());
-                sampler.setMethod(spec.getMethod());
-                sampler.setName("Run spec");
-                sampler.setProperty(TestElement.TEST_CLASS, HTTPSamplerProxy.class.getName());
-                sampler.setProperty(TestElement.GUI_CLASS, HttpTestSampleGui.class.getName());
-
-                sampler.addNonEncodedArgument("", spec.getBody(), "");
-                sampler.setPostBodyRaw(true);
-
-                HeaderManager value = new HeaderManager();
-                value.add(new Header("Content-Type", "application/json"));
-                sampler.setHeaderManager(value);
+                HTTPSamplerProxy sampler = buildSampler(spec);
 
                 // Loop Controller
-                LoopController loopController = new LoopController();
-                loopController.setLoops(1);
-                loopController.setFirst(true);
-                loopController.setProperty(TestElement.TEST_CLASS, LoopController.class.getName());
-                loopController.setProperty(TestElement.GUI_CLASS, LoopControlPanel.class.getName());
-                loopController.initialize();
+                LoopController loopController = buildLoopController();
 
                 // Thread Group
-                org.apache.jmeter.threads.ThreadGroup threadGroup = new org.apache.jmeter.threads.ThreadGroup();
-                threadGroup.setName("Example Thread Group");
-                threadGroup.setNumThreads(spec.getNumberOfThreads());
-                threadGroup.setRampUp(10);
-                threadGroup.setSamplerController(loopController);
-                threadGroup.setProperty(TestElement.TEST_CLASS, ThreadGroup.class.getName());
-                threadGroup.setProperty(TestElement.GUI_CLASS, ThreadGroupGui.class.getName());
+                ThreadGroup threadGroup = buildThreadGroup(spec, loopController);
 
                 // Test Plan
-                TestPlan testPlan = new TestPlan("Create JMeter Script From Java Code");
-                testPlan.setProperty(TestElement.TEST_CLASS, TestPlan.class.getName());
-                testPlan.setProperty(TestElement.GUI_CLASS, TestPlanGui.class.getName());
-                testPlan.setUserDefinedVariables((Arguments) new ArgumentsPanel().createTestElement());
+                TestPlan testPlan = buildTestPlan();
 
                 // Construct Test Plan from previously initialized elements
                 testPlanTree.add(testPlan);
@@ -107,33 +92,109 @@ public class JmeterService {
                 threadGroupHashTree.add(sampler);
 
                 // save generated test plan to JMeter's .jmx file format
-                SaveService.saveTree(testPlanTree, new FileOutputStream(System.getProperty("user.dir") + "/example.jmx"));
+                String jmxFile = System.getProperty("user.dir") + fileName + ".jmx";
+                SaveService.saveTree(testPlanTree, new FileOutputStream(jmxFile));
 
                 //add Summarizer output to get test progress in stdout like:
                 // summary =      2 in   1.3s =    1.5/s Avg:   631 Min:   290 Max:   973 Err:     0 (0.00%)
-                Summariser summer = null;
-                String summariserName = JMeterUtils.getPropDefault("summariser.name", "summary");
-                if (summariserName.length() > 0) {
-                    summer = new Summariser(summariserName);
-                }
+                Summariser summer = buildSummariser();
 
                 // Store execution results into a .jtl file
-                String logFile = System.getProperty("user.dir") + "/example.jmx";
-                ResultCollector logger = new ResultCollector(summer);
-                logger.setFilename(logFile);
+                ResultCollector logger = buildLogger(fileName, summer);
                 testPlanTree.add(testPlanTree.getArray()[0], logger);
 
                 // Run Test Plan
                 jmeter.configure(testPlanTree);
-                jmeter.run();
 
-                System.out.println("Test completed. See " + jmeterHome + slash + "example.jtl file for results");
-                System.out.println("JMeter .jmx script is available at " + jmeterHome + slash + "example.jmx");
-                System.exit(0);
+                Thread thread = new Thread(() -> {
+                    jmeter.run();
 
+                    while (jmeter.isActive()) {
+                        log.info("test running!");
+                    }
+
+                    String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                    repo.save(new JmeterResultData(date, fileName + ".jtl", jmxFile));
+
+                });
+
+                thread.start();
+
+                log.info("Test started for a spec: " + spec);
             }
         }
-
     }
 
+    @Nullable
+    private static Summariser buildSummariser() {
+        Summariser summer = null;
+        String summariserName = JMeterUtils.getPropDefault("summariser.name", "summary");
+        if (summariserName.length() > 0) {
+            summer = new Summariser(summariserName);
+        }
+        return summer;
+    }
+
+    private static ResultCollector buildLogger(String fileName, Summariser summer) {
+        String logFile = DIR + fileName + ".jtl";
+        ResultCollector logger = new ResultCollector(summer);
+        logger.setFilename(logFile);
+        return logger;
+    }
+
+    @NotNull
+    private static TestPlan buildTestPlan() {
+        TestPlan testPlan = new TestPlan("Create JMeter Script From Java Code");
+        testPlan.setProperty(TestElement.TEST_CLASS, TestPlan.class.getName());
+        testPlan.setProperty(TestElement.GUI_CLASS, TestPlanGui.class.getName());
+        testPlan.setUserDefinedVariables((Arguments) new ArgumentsPanel().createTestElement());
+        return testPlan;
+    }
+
+    @NotNull
+    private static ThreadGroup buildThreadGroup(JmeterSpecification spec, LoopController loopController) {
+        ThreadGroup threadGroup = new ThreadGroup();
+        threadGroup.setName("Example Thread Group");
+        threadGroup.setNumThreads(spec.getNumberOfThreads());
+        threadGroup.setRampUp(10);
+        threadGroup.setSamplerController(loopController);
+        threadGroup.setProperty(TestElement.TEST_CLASS, ThreadGroup.class.getName());
+        threadGroup.setProperty(TestElement.GUI_CLASS, ThreadGroupGui.class.getName());
+        return threadGroup;
+    }
+
+    @NotNull
+    private static LoopController buildLoopController() {
+        LoopController loopController = new LoopController();
+        loopController.setLoops(1);
+        loopController.setFirst(true);
+        loopController.setProperty(TestElement.TEST_CLASS, LoopController.class.getName());
+        loopController.setProperty(TestElement.GUI_CLASS, LoopControlPanel.class.getName());
+        loopController.initialize();
+        return loopController;
+    }
+
+    @NotNull
+    private static HTTPSamplerProxy buildSampler(JmeterSpecification spec) {
+        HTTPSamplerProxy sampler = new HTTPSamplerProxy();
+        sampler.setDomain(spec.getIp());
+        sampler.setPort(spec.getPort());
+        sampler.setPath(spec.getPath());
+        sampler.setMethod(spec.getMethod());
+        sampler.setName("Run spec");
+        sampler.setProperty(TestElement.TEST_CLASS, HTTPSamplerProxy.class.getName());
+        sampler.setProperty(TestElement.GUI_CLASS, HttpTestSampleGui.class.getName());
+
+        sampler.addNonEncodedArgument("", spec.getBody(), "");
+        sampler.setPostBodyRaw(true);
+
+        HeaderManager value = new HeaderManager();
+        value.add(new Header("Content-Type", "application/json"));
+        sampler.setHeaderManager(value);
+        return sampler;
+    }
+
+    public Map<String, JmeterResultData> getAllResults() {
+        return repo.getResults();
+    }
 }
