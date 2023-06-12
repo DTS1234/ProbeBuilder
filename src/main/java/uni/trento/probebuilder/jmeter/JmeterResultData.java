@@ -11,4 +11,6 @@ public class JmeterResultData {
     private String date;
     private String jtlFile;
     private String jmxFile;
+    private String numberOfThreads;
+    private String rampUpPeriod;
 }
