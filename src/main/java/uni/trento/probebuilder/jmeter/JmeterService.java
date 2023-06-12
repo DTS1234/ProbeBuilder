@@ -11,6 +11,7 @@ import org.apache.jmeter.engine.StandardJMeterEngine;
 import org.apache.jmeter.protocol.http.control.Header;
 import org.apache.jmeter.protocol.http.control.HeaderManager;
 import org.apache.jmeter.protocol.http.control.gui.HttpTestSampleGui;
+import org.apache.jmeter.protocol.http.gui.HeaderPanel;
 import org.apache.jmeter.protocol.http.sampler.HTTPSamplerProxy;
 import org.apache.jmeter.reporters.ResultCollector;
 import org.apache.jmeter.reporters.Summariser;
@@ -89,7 +90,7 @@ public class JmeterService {
                 // Construct Test Plan from previously initialized elements
                 testPlanTree.add(testPlan);
                 HashTree threadGroupHashTree = testPlanTree.add(testPlan, threadGroup);
-                threadGroupHashTree.add(sampler);
+                threadGroupHashTree.add(sampler, sampler.getHeaderManager());
 
                 // save generated test plan to JMeter's .jmx file format
                 String jmxFile = System.getProperty("user.dir") + fileName + ".jmx";
@@ -178,6 +179,13 @@ public class JmeterService {
 
     @NotNull
     private static HTTPSamplerProxy buildSampler(JmeterSpecification spec) {
+
+        HeaderManager manager = new HeaderManager();
+        manager.add(new Header("Content-Type", "application/json"));
+        manager.setName(JMeterUtils.getResString("header_manager_title")); // $NON-NLS-1$
+        manager.setProperty(TestElement.TEST_CLASS, HeaderManager.class.getName());
+        manager.setProperty(TestElement.GUI_CLASS, HeaderPanel.class.getName());
+
         HTTPSamplerProxy sampler = new HTTPSamplerProxy();
         sampler.setDomain(spec.getIp());
         sampler.setPort(spec.getPort());
@@ -186,13 +194,10 @@ public class JmeterService {
         sampler.setName("Run spec");
         sampler.setProperty(TestElement.TEST_CLASS, HTTPSamplerProxy.class.getName());
         sampler.setProperty(TestElement.GUI_CLASS, HttpTestSampleGui.class.getName());
-
-        sampler.addNonEncodedArgument("", spec.getBody(), "");
+        sampler.addNonEncodedArgument("Body Data", spec.getBody(), "");
         sampler.setPostBodyRaw(true);
+        sampler.setHeaderManager(manager);
 
-        HeaderManager value = new HeaderManager();
-        value.add(new Header("Content-Type", "application/json"));
-        sampler.setHeaderManager(value);
         return sampler;
     }
 
