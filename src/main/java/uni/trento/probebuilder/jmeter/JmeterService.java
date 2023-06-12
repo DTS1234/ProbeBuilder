@@ -114,8 +114,10 @@ public class JmeterService {
                     }
 
                     String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                    repo.save(new JmeterResultData(date, fileName + ".jtl", jmxFile));
-
+                    repo.save(new JmeterResultData(date, fileName + ".jtl", jmxFile,
+                        String.valueOf(spec.getNumberOfThreads()),
+                        String.valueOf(spec.getRampUpPeriod())
+                    ));
                 });
 
                 thread.start();
