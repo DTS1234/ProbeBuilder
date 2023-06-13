@@ -99,13 +99,16 @@
             <button class="btn btn-primary mt-3" type="button" onclick="launchJmeter()">Submit</button>
         </form>
     </div>
-    <div class="col-6 mr-4">
+    <div class="col-8 mr-4">
         <table class="table table-bordered">
             <thead>
             <tr>
                 <th>Date</th>
                 <th>JTL File</th>
-                <th>JMX File</th>
+                <th>Number of threads</th>
+                <th>Ramp up period</th>
+                <th>Test type</th>
+
             </tr>
             </thead>
             <tbody id="results"></tbody>
@@ -208,16 +211,17 @@
                 type: 'GET',
                 success: function (data) {
                     // Generate HTML table rows dynamically based on the received data
-                    // Generate HTML table rows dynamically based on the received data
                     var rows = '';
                     Object.keys(data).forEach(function (key) {
                         var result = data[key];
+                        var className = result.done  === true ? "bg-success" : "bg-danger"
+
                         rows += '<tr>';
-                        rows += '<td>' + result.date + '</td>';
+                        rows += '<td class=' + className +'>' + result.date + '</td>';
                         rows += '<td>' + result.jtlFile + '</td>';
-                        rows += '<td>' + result.jmxFile + '</td>';
                         rows += '<td>' + result.numberOfThreads + '</td>';
                         rows += '<td>' + result.rampUpPeriod + '</td>';
+                        rows += '<td>' + result.testType + '</td>';
                         rows += '</tr>';
                     });
 

@@ -108,16 +108,26 @@ public class JmeterService {
                 jmeter.configure(testPlanTree);
 
                 Thread thread = new Thread(() -> {
+
+                    String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                    repo.save(new JmeterResultData(date, fileName + ".jtl", fileName + ".jmx",
+                        String.valueOf(spec.getNumberOfThreads()),
+                        String.valueOf(spec.getRampUpPeriod()),
+                        spec.getPath(),
+                        false
+                    ));
+
                     jmeter.run();
 
                     while (jmeter.isActive()) {
                         log.info("test running!");
                     }
 
-                    String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                    repo.save(new JmeterResultData(date, fileName + ".jtl", jmxFile,
+                    repo.save(new JmeterResultData(date, fileName + ".jtl", fileName + ".jmx",
                         String.valueOf(spec.getNumberOfThreads()),
-                        String.valueOf(spec.getRampUpPeriod())
+                        String.valueOf(spec.getRampUpPeriod()),
+                        spec.getPath(),
+                        true
                     ));
                 });
 

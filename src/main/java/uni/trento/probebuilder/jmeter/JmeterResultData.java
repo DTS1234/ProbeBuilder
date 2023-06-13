@@ -13,4 +13,6 @@ public class JmeterResultData {
     private String jmxFile;
     private String numberOfThreads;
     private String rampUpPeriod;
+    private String testType;
+    private boolean done;
 }
