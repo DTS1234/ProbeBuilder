@@ -123,6 +123,7 @@ public class JmeterService {
                         log.info("test running!");
                     }
 
+
                     repo.save(new JmeterResultData(date, fileName + ".jtl", fileName + ".jmx",
                         String.valueOf(spec.getNumberOfThreads()),
                         String.valueOf(spec.getRampUpPeriod()),
@@ -151,6 +152,7 @@ public class JmeterService {
     private static ResultCollector buildLogger(String fileName, Summariser summer) {
         String logFile = DIR + fileName + ".jtl";
         ResultCollector logger = new ResultCollector(summer);
+        logger.setErrorLogging(true);
         logger.setFilename(logFile);
         return logger;
     }
@@ -169,7 +171,7 @@ public class JmeterService {
         ThreadGroup threadGroup = new ThreadGroup();
         threadGroup.setName("Example Thread Group");
         threadGroup.setNumThreads(spec.getNumberOfThreads());
-        threadGroup.setRampUp(10);
+        threadGroup.setRampUp(spec.getRampUpPeriod());
         threadGroup.setSamplerController(loopController);
         threadGroup.setProperty(TestElement.TEST_CLASS, ThreadGroup.class.getName());
         threadGroup.setProperty(TestElement.GUI_CLASS, ThreadGroupGui.class.getName());
