@@ -14,14 +14,25 @@
 <div class="row">
     <div class="col">
         <h2 class="mt-3">Test Configuration</h2>
+        <h3 class="mt-3">Stress-ng Job</h3>
+
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="flexCheckChecked" onclick="enableCommandMode()">
+            <label class="form-check-label" for="flexCheckChecked">Command mode</label>
+        </div>
+
+        <form id="commandForm" style="display: none">
+            <label class="form-label" for="stress-ng-command">Stress ng command</label>
+            <input class="form-control" type="text" id="stress-ng-command" name="command">
+        </form>
+
         <form id="testForm" class="mt-4">
             <!-- Test Specification Fields -->
-            <h3>Stress-ng Job</h3>
             <label class="form-label" for="durationInSeconds">Duration (seconds):</label>
             <input class="form-control" type="number" id="durationInSeconds" name="durationInSeconds">
 
             <label class="form-label" for="cpuLoad">CPU Load:</label>
-            <input class="form-control" type="number" id="cpuLoad" name="cpuLoad" max="100" min="1" required>
+            <input class="form-control" type="number" id="cpuLoad" name="cpuLoad" max="100" min="1">
 
             <label class="form-label" for="vmWorkers">VM Workers:</label>
             <input class="form-control" type="number" id="vmWorkers" name="vmWorkers">
@@ -38,6 +49,17 @@
             <button class="btn btn-primary mt-3" type="submit">Submit</button>
         </form>
 
+    </div>
+    <div class="col">
+        <h2 class="mt-3">Json value</h2>
+        <lable for="json-ng"><h3 class="mt-4">Stress ng json</h3></lable>
+        <textarea rows=10 cols=100 id="json-ng" class="form-control mt-3"></textarea>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col">
+
         <form id="fileForm" class="mt-4">
             <h3>File System Operations</h3>
             <label class="form-label" for="filesToCreate">Number of Files to Create:</label>
@@ -49,6 +71,15 @@
             <button class="btn btn-primary mt-3" type="submit">Submit</button>
         </form>
 
+    </div>
+    <div class="col">
+        <label for="json-file"><h3 class="mt-3">File operations json</h3></label>
+        <textarea rows=10 cols=100 id="json-file" class="form-control mt-3"></textarea>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col">
         <form id="payloadForm" onclick="generatePayload()" class="mt-4">
             <h3>Dummy payload</h3>
 
@@ -57,16 +88,9 @@
             <button class="btn btn-primary mt-3" type="button" onclick="generatePayload()">Submit</button>
 
         </form>
-
     </div>
-
     <div class="col">
-        <h2 class="mt-3">Json value</h2>
-        <h3 class="mt-4">Stress ng json</h3>
-        <textarea rows=10 cols=100 id="json-ng" class="form-control mt-3"></textarea>
-        <h3 class="mt-3">File operations json</h3>
-        <textarea rows=10 cols=100 id="json-file" class="form-control mt-3"></textarea>
-        <h3 class="mt-3">Dummy payload json</h3>
+        <label for="json-payload"><h3 class="mt-3">Dummy payload json</h3></label>
         <textarea rows=10 cols=100 id="json-payload" class="form-control mt-3"></textarea>
     </div>
 </div>
@@ -115,18 +139,33 @@
     </div>
 </div>
 
-<div class="row">
-    <h2 class="mx-auto mt-4 mb-4">Transactional db load</h2>
-    <div class="col">
-
-    </div>
-    <div class="col">
-
-    </div>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+
+    function enableCommandMode() {
+
+        let testForm = document.getElementById("testForm");
+        let commandForm = document.getElementById("commandForm");
+        console.log("I'm here !")
+        console.log(testForm)
+
+        if (testForm.style.display === "none") {
+            testForm.style.display = "block"
+            commandForm.style.display = "none"
+        } else {
+            testForm.style.display = "none";
+            commandForm.style.display = "block"
+        }
+
+    }
+
+    document.getElementById("stress-ng-command").addEventListener("change", submitCommand)
+
+    function submitCommand() {
+        if (document.getElementById("flexCheckChecked").checked === true) {
+            document.getElementById("json-ng").innerText = JSON.stringify({"isCommand": true, "command": document.getElementById("stress-ng-command").value})
+        }
+    }
 
     document.getElementById("fileForm").addEventListener("submit", function (event) {
         event.preventDefault();
@@ -167,16 +206,20 @@
     });
 
     function launchJmeter() {
+
         var form = document.getElementById("jmeterForm");
         var formData = new FormData(form);
 
         var jsonObject = {};
 
         for (var [key, value] of formData.entries()) {
-            jsonObject[key] = value;
+            if (value != null || value !== "null") {
+                jsonObject[key] = value;
+            }
         }
 
         var jsonPayload = JSON.stringify(jsonObject);
+
 
         var xhr = new XMLHttpRequest();
 

@@ -13,6 +13,9 @@ import org.apache.jmeter.protocol.http.control.HeaderManager;
 import org.apache.jmeter.protocol.http.control.gui.HttpTestSampleGui;
 import org.apache.jmeter.protocol.http.gui.HeaderPanel;
 import org.apache.jmeter.protocol.http.sampler.HTTPSamplerProxy;
+import org.apache.jmeter.report.config.ConfigurationException;
+import org.apache.jmeter.report.dashboard.GenerationException;
+import org.apache.jmeter.report.dashboard.ReportGenerator;
 import org.apache.jmeter.reporters.ResultCollector;
 import org.apache.jmeter.reporters.Summariser;
 import org.apache.jmeter.save.SaveService;
@@ -34,6 +37,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+
+import static org.apache.jmeter.JMeter.JMETER_REPORT_OUTPUT_DIR_PROPERTY;
 
 @Service
 @Slf4j
@@ -57,8 +62,10 @@ public class JmeterService {
 
         if (exists) {
             File jmeterProperties = new File(jmeterHome.getPath() + slash + "libexec/bin" + slash + "jmeter.properties");
+            JMeterUtils.loadJMeterProperties(jmeterProperties.getPath());
 
             boolean existsProperties = jmeterProperties.exists();
+
             log.info("Jmeter properties correct: " + existsProperties);
 
             if (existsProperties) {
@@ -71,6 +78,7 @@ public class JmeterService {
                 JMeterUtils.setJMeterHome(jmeterHome.getPath());
                 JMeterUtils.loadJMeterProperties(jmeterProperties.getPath());
                 JMeterUtils.setLocale(Locale.US);
+                SaveService.loadProperties();
 
                 // JMeter Test Plan, basically JOrphan HashTree
                 HashTree testPlanTree = new HashTree();
@@ -119,12 +127,7 @@ public class JmeterService {
 
                     jmeter.run();
 
-                    while (jmeter.isActive()) {
-                        log.info("test running!");
-                    }
-
-
-                    repo.save(new JmeterResultData(date, fileName + ".jtl", fileName + ".jmx",
+                    repo.save(new JmeterResultData(date, fileName + ".csv", fileName + ".jmx",
                         String.valueOf(spec.getNumberOfThreads()),
                         String.valueOf(spec.getRampUpPeriod()),
                         spec.getPath(),
@@ -133,7 +136,6 @@ public class JmeterService {
                 });
 
                 thread.start();
-
                 log.info("Test started for a spec: " + spec);
             }
         }
@@ -150,9 +152,8 @@ public class JmeterService {
     }
 
     private static ResultCollector buildLogger(String fileName, Summariser summer) {
-        String logFile = DIR + fileName + ".jtl";
-        ResultCollector logger = new ResultCollector(summer);
-        logger.setErrorLogging(true);
+        String logFile = DIR + "/" + fileName + ".csv";
+        ResultCollector logger = new ResultCollector(summer);;
         logger.setFilename(logFile);
         return logger;
     }

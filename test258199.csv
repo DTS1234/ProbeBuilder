@@ -1,0 +1,2 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1687245755449,594,Run spec,200,,Example Thread Group 1-1,text,true,,144,234,1,1,http://localhost:53586/api/job,594,0,8
