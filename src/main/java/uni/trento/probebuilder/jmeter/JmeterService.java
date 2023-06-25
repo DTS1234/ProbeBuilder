@@ -127,6 +127,8 @@ public class JmeterService {
 
                     jmeter.run();
 
+                    ReportCreator.create(fileName+".csv");
+
                     repo.save(new JmeterResultData(date, fileName + ".csv", fileName + ".jmx",
                         String.valueOf(spec.getNumberOfThreads()),
                         String.valueOf(spec.getRampUpPeriod()),
