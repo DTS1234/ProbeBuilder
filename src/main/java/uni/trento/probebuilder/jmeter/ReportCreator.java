@@ -27,12 +27,10 @@ import static tech.tablesaw.aggregate.AggregateFunctions.mean;
 @Slf4j
 public class ReportCreator {
 
-    private static DataFrameReader read = Table.read();
-
     public static ReportData create(String file) {
 
         try {
-            Table table = read.file(new File(file));
+            Table table = Table.read().file(new File(file));
             table.addColumns(DoubleColumn.create("count", IntStream.range(1, table.rowCount() + 1).toArray()));
 
             DoubleColumn latencySeconds = table.intColumn("Latency").divide(1000).setName("Latency seconds");
@@ -43,8 +41,6 @@ public class ReportCreator {
 
             Figure errrorsAndSuccessPlot = HorizontalBarPlot.create("Errors and success", successCategory, "Category", "Count");
             Figure latencyOverTime = TimeSeriesPlot.create("Latency over time", table, "count", "Latency seconds");
-
-            //Plot.show(latencyOverTime, "plot", new File("test.html"));
 
             return new ReportData(
                 createHTMLFile("report" + file.replaceAll(".csv", ".html"), Arrays.asList(latencyOverTime, errrorsAndSuccessPlot)),
@@ -96,7 +92,7 @@ public class ReportCreator {
             getDivs(plots) +
             "    </div>\n" +
             "</body>\n" +
-            plots.stream().map(p -> p.asJavascript("plot"+plots.indexOf(p))).collect(Collectors.joining("")) +
+            plots.stream().map(p -> p.asJavascript("plot" + plots.indexOf(p))).collect(Collectors.joining("")) +
             "</html>";
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
