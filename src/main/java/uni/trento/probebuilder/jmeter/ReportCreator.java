@@ -110,5 +110,4 @@ public class ReportCreator {
         return plots.stream().map(p -> "<div id=plot" + plots.indexOf(p) + "></div>")
             .collect(Collectors.joining(""));
     }
-
 }

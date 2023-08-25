@@ -31,7 +31,7 @@ public class JmeterRepository {
 
     @NotNull
     private static Comparator<String> getDateFromStringComparator() {
-        Comparator<String> comparator = (String s1, String s2) -> {
+        return (String s1, String s2) -> {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             boolean isBefore = LocalDateTime.parse(s1, formatter).isBefore(LocalDateTime.parse(s2, formatter));
             boolean isAfter = LocalDateTime.parse(s1, formatter).isAfter(LocalDateTime.parse(s2, formatter));
@@ -44,6 +44,5 @@ public class JmeterRepository {
                 return 0;
             }
         };
-        return comparator;
     }
 }

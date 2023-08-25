@@ -13,6 +13,7 @@ import org.apache.jmeter.protocol.http.control.HeaderManager;
 import org.apache.jmeter.protocol.http.control.gui.HttpTestSampleGui;
 import org.apache.jmeter.protocol.http.gui.HeaderPanel;
 import org.apache.jmeter.protocol.http.sampler.HTTPSamplerProxy;
+import org.apache.jmeter.protocol.http.util.HTTPFileArg;
 import org.apache.jmeter.report.config.ConfigurationException;
 import org.apache.jmeter.report.dashboard.GenerationException;
 import org.apache.jmeter.report.dashboard.ReportGenerator;
@@ -27,7 +28,9 @@ import org.apache.jmeter.util.JMeterUtils;
 import org.apache.jorphan.collections.HashTree;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ResourceUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -52,16 +55,17 @@ public class JmeterService {
 
         log.info("TEST start !");
 
-        String jmeterHome1 = "/opt/homebrew/Cellar/jmeter/5.5";
-        File jmeterHome = new File(jmeterHome1);
+        String jmeterHomePath = "/opt/homebrew/Cellar/jmeter/5.6.2";
+        File jmeterHome = new File(jmeterHomePath);
         String slash = System.getProperty("file.separator");
 
         boolean exists = jmeterHome.exists();
 
         log.info("Jmeter home correct: " + exists);
 
-        if (exists) {
-            File jmeterProperties = new File(jmeterHome.getPath() + slash + "libexec/bin" + slash + "jmeter.properties");
+        if (true) {
+            ClassPathResource classPathResource = new ClassPathResource("jmeter.properties");
+            File jmeterProperties = File.createTempFile("jmeter","properties");
             JMeterUtils.loadJMeterProperties(jmeterProperties.getPath());
 
             boolean existsProperties = jmeterProperties.exists();
@@ -172,7 +176,7 @@ public class JmeterService {
     @NotNull
     private static ThreadGroup buildThreadGroup(JmeterSpecification spec, LoopController loopController) {
         ThreadGroup threadGroup = new ThreadGroup();
-        threadGroup.setName("Example Thread Group");
+        threadGroup.setName("Thread Group");
         threadGroup.setNumThreads(spec.getNumberOfThreads());
         threadGroup.setRampUp(spec.getRampUpPeriod());
         threadGroup.setSamplerController(loopController);
@@ -212,6 +216,8 @@ public class JmeterService {
         sampler.addNonEncodedArgument("Body Data", spec.getBody(), "");
         sampler.setPostBodyRaw(true);
         sampler.setHeaderManager(manager);
+
+        HTTPFileArg httpFileArg = new HTTPFileArg("file.txt");
 
         return sampler;
     }
