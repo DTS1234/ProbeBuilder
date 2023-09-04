@@ -6,8 +6,6 @@ import tech.tablesaw.aggregate.Summarizer;
 import tech.tablesaw.api.CategoricalColumn;
 import tech.tablesaw.api.DoubleColumn;
 import tech.tablesaw.api.Table;
-import tech.tablesaw.io.DataFrameReader;
-import tech.tablesaw.plotly.Plot;
 import tech.tablesaw.plotly.api.HorizontalBarPlot;
 import tech.tablesaw.plotly.api.TimeSeriesPlot;
 import tech.tablesaw.plotly.components.Figure;
@@ -30,6 +28,7 @@ public class ReportCreator {
     public static ReportData create(String file) {
 
         try {
+            Thread.sleep(1000);
             Table table = Table.read().file(new File(file));
             table.addColumns(DoubleColumn.create("count", IntStream.range(1, table.rowCount() + 1).toArray()));
 
@@ -50,6 +49,8 @@ public class ReportCreator {
 
         } catch (IOException e) {
             throw new IllegalStateException("Failed to create a report for " + file);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
 
     }
