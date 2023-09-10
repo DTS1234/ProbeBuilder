@@ -96,6 +96,20 @@
 </div>
 
 <div class="row">
+
+    <h2 class="mx-auto mt-4 mb-4">Jmeter path</h2>
+    <div class="col-4">
+        <form id="uploadForm">
+            <input class="form-control" type="text" id="pathInput">
+            <button class="btn btn-primary mt-3" type="button" value="Upload" onclick="jmeterHomePath()">SET PATH</button>
+        </form>
+    </div>
+    <div class="col-4">
+        <label for="current-path">CURRENT PATH:</label>
+        <input class="form-control" disabled id="current-path" type="text">
+    </div>
+
+    <br>
     <h2 class="mx-auto mt-4 mb-4">Jmeter launcher</h2>
     <div class="col-4">
         <form id="jmeterForm">
@@ -112,7 +126,11 @@
             <input value="8080" class="form-control" type="number" id="port" name="port" required><br>
 
             <label class="form-label" for="path">Path:</label>
-            <input value="api/load" class="form-control" type="text" id="path" name="path" required><br>
+            <select value="api/load" class="form-control" type="text" id="path" name="path" required>
+                <option>api/load</option>
+                <option>api/job</option>
+                <option>api/file-operations</option>
+            </select><br>
 
             <label class="form-label" for="method">Method:</label>
             <input value="POST" class="form-control" type="text" id="method" name="method" required><br>
@@ -128,7 +146,7 @@
             <thead>
             <tr>
                 <th>Date</th>
-                <th>JTL File</th>
+                <th>CSV File</th>
                 <th>Number of threads</th>
                 <th>Ramp up period</th>
                 <th>Test type</th>
@@ -141,6 +159,36 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+
+    function jmeterHomePath() {
+        const fileInput = document.getElementById('pathInput');
+        if (fileInput.value === null) {
+            alert('Please enter a jmeter home path.');
+            return;
+        }
+
+        const path = fileInput.value;
+
+        document.getElementById("current-path").value = path
+
+        // Construct FormData to send the file
+        const formData = {
+            path: path
+        }
+
+        fetch('http://localhost:4040/path', {
+            method: 'POST',
+            body: JSON.stringify(formData),
+            headers: {"Content-Type": "application/json"},
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+    }
 
     function enableCommandMode() {
 
@@ -220,11 +268,24 @@
 
         var jsonPayload = JSON.stringify(jsonObject);
 
-
         var xhr = new XMLHttpRequest();
 
         xhr.open("POST", "http://localhost:4040/run");
         xhr.setRequestHeader("Content-Type", "application/json");
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {  // Check if request is complete
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    // Successful response
+                    console.log("Success:", xhr.responseText);
+                } else {
+                    // Handle error. You can also check specific status like 404, 500, etc.
+                    console.error("Error:", xhr.status, xhr.statusText, xhr.responseText);
+                    alert("Could not star the test because: " + xhr.responseText)
+                }
+            }
+        };
+
         xhr.send(jsonPayload);
     }
 

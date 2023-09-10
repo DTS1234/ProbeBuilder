@@ -6,8 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class ProbebuilderApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(ProbebuilderApplication.class, args);
-	}
-
+    public static void main(String[] args) {
+        SpringApplication.run(ProbebuilderApplication.class, args);
+    }
 }
