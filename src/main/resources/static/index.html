@@ -11,6 +11,18 @@
     </style>
 </head>
 <body class="container bg-secondary-subtle">
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+            <li class="nav-item active">
+                <a class="nav-link" href="/index.html">Probe builder<span class="sr-only"></span></a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/scaling.html">Scaling</a>
+            </li>
+        </ul>
+    </div>
+</nav>
 <div class="row">
     <div class="col">
         <h2 class="mt-3">Test Configuration</h2>
@@ -52,7 +64,7 @@
     </div>
     <div class="col">
         <h2 class="mt-3">Json value</h2>
-        <lable for="json-ng"><h3 class="mt-4">Stress ng json</h3></lable>
+        <label for="json-ng"><h3 class="mt-4">Stress ng json</h3></label>
         <textarea rows=10 cols=100 id="json-ng" class="form-control mt-3"></textarea>
     </div>
 </div>
@@ -113,11 +125,17 @@
     <h2 class="mx-auto mt-4 mb-4">Jmeter launcher</h2>
     <div class="col-4">
         <form id="jmeterForm">
+            <label class="form-label" for="testName">Test Name:</label>
+            <input class="form-control" type="text" id="testName" name="testName" required><br>
+
             <label class="form-label" for="numberOfThreads">Number of Threads:</label>
             <input class="form-control" type="number" id="numberOfThreads" name="numberOfThreads" required><br>
 
             <label class="form-label" for="rampUpPeriod">Ramp-Up Period:</label>
             <input class="form-control" type="number" id="rampUpPeriod" name="rampUpPeriod" required><br>
+
+            <label class="form-label" for="duration">Duration in seconds:</label>
+            <input class="form-control" type="number" id="duration" name="duration" required><br>
 
             <label class="form-label" for="ip">IP:</label>
             <input value="localhost" class="form-control" type="text" id="ip" name="ip" required><br>
@@ -139,6 +157,8 @@
             <textarea class="form-control" id="body" name="body" rows="5" required></textarea><br>
 
             <button class="btn btn-primary mt-3" type="button" onclick="launchJmeter()">Submit</button>
+            <button class="btn btn-primary mt-3" type="button" onclick="addToScheduler()">Add to the queue</button>
+            <button class="btn btn-primary mt-3" type="button" onclick="executeSchedule()">Run the queue</button>
         </form>
     </div>
     <div class="col-8 mr-4">
@@ -156,6 +176,25 @@
         </table>
     </div>
 </div>
+
+<table id="schedulerTable" class="table table-bordered mt-5">
+    <thead>
+    <tr>
+        <th>Test Name</th>
+        <th>Number Of Threads</th>
+        <th>Ramp Up Period</th>
+        <th>IP</th>
+        <th>Port</th>
+        <th>Path</th>
+        <th>Method</th>
+        <th>Duration</th>
+        <th>Remove</th>
+    </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -253,8 +292,100 @@
         document.getElementById("testForm").reset();
     });
 
-    function launchJmeter() {
+    function refreshScheduledTable() {
 
+        var xhr = new XMLHttpRequest();
+
+        xhr.open("GET", "http://localhost:4040/schedule");
+        xhr.setRequestHeader("Content-Type", "application/json");
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {  // Check if request is complete
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    console.log("Success:", xhr.responseText);
+                    var responseList = JSON.parse(xhr.responseText); // Parse the response JSON string
+                    var table = document.getElementById("schedulerTable").getElementsByTagName('tbody')[0]; // Reference to the table body
+
+                    // Clear existing rows:
+                    while (table.firstChild) {
+                        table.removeChild(table.firstChild);
+                    }
+
+                    responseList.forEach(function(item, index) {
+                        var newRow = table.insertRow(); // Insert a new row
+                        newRow.insertCell().textContent = item.testName;
+                        newRow.insertCell().textContent = item.numberOfThreads;
+                        newRow.insertCell().textContent = item.rampUpPeriod;
+                        newRow.insertCell().textContent = item.ip;
+                        newRow.insertCell().textContent = item.port;
+                        newRow.insertCell().textContent = item.path;
+                        newRow.insertCell().textContent = item.method;
+                        newRow.insertCell().textContent = item.duration;
+                        var btnCell = newRow.insertCell();
+                        var btn = document.createElement('button');  // create a button node
+                        btn.innerHTML = 'X';  // set the button label
+                        btn.addEventListener('click', function() {
+                            removeFromSchedule(index);
+                        });  // set up event listener to call your function with the current index when the button is clicked
+                        btnCell.appendChild(btn);
+                    });
+                }
+            }
+        };
+
+        xhr.send()
+
+    }
+
+    function executeSchedule() {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "http://localhost:4040/schedule/execute");
+        xhr.send()
+    }
+
+    function removeFromSchedule(index) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "http://localhost:4040/schedule/remove/" + index);
+
+        // Assuming no payload is needed for the request, if a payload is needed adjust accordingly
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
+                console.log("Removed Successfully", xhr.responseText);
+                // You might want to update the table here with the new data returned from the server.
+            } else if(xhr.readyState === 4) {
+                console.error("Error removing:", xhr.status, xhr.statusText, xhr.responseText);
+            }
+        };
+
+        xhr.send();
+        refreshScheduledTable()
+    }
+
+    function addToScheduler() {
+        var specJson = getJmeterSpec()
+
+        var xhr = new XMLHttpRequest();
+
+        xhr.open("POST", "http://localhost:4040/schedule/add");
+        xhr.setRequestHeader("Content-Type", "application/json");
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {  // Check if request is complete
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    console.log("Success:", xhr.responseText);
+                } else {
+                    console.error("Error:", xhr.status, xhr.statusText, xhr.responseText);
+                    alert("Could not add to the schedule because: " + xhr.responseText)
+                }
+            }
+        };
+
+        xhr.send(specJson);
+        refreshScheduledTable()
+
+    }
+
+    function getJmeterSpec() {
         var form = document.getElementById("jmeterForm");
         var formData = new FormData(form);
 
@@ -267,6 +398,12 @@
         }
 
         var jsonPayload = JSON.stringify(jsonObject);
+        return jsonPayload;
+    }
+
+    function launchJmeter() {
+
+        var jsonPayload = getJmeterSpec();
 
         var xhr = new XMLHttpRequest();
 
@@ -350,7 +487,8 @@
         updateResults();
 
         // Set interval to periodically update the results every 10 seconds
-        setInterval(updateResults, 10000);
+        setInterval(updateResults, 1000);
+        setInterval(refreshScheduledTable, 1000)
     });
 </script>
 

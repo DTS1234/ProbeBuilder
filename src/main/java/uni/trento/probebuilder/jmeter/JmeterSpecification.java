@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class JmeterSpecification {
 
+    private String testName;
     private int numberOfThreads;
     private int rampUpPeriod;
     private String ip;
@@ -16,5 +17,6 @@ public class JmeterSpecification {
     private String path;
     private String method;
     private String body;
+    private int duration;
 
 }

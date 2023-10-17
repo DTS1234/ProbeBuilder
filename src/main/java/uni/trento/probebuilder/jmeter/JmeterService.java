@@ -13,7 +13,6 @@ import org.apache.jmeter.protocol.http.control.HeaderManager;
 import org.apache.jmeter.protocol.http.control.gui.HttpTestSampleGui;
 import org.apache.jmeter.protocol.http.gui.HeaderPanel;
 import org.apache.jmeter.protocol.http.sampler.HTTPSamplerProxy;
-import org.apache.jmeter.protocol.http.util.HTTPFileArg;
 import org.apache.jmeter.reporters.ResultCollector;
 import org.apache.jmeter.reporters.Summariser;
 import org.apache.jmeter.save.SaveService;
@@ -25,7 +24,6 @@ import org.apache.jmeter.util.JMeterUtils;
 import org.apache.jorphan.collections.HashTree;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -35,7 +33,10 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Random;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 @Service
 @Slf4j
@@ -50,6 +51,9 @@ public class JmeterService {
         log.info("TEST start !");
 
         String jmeterHomePath = ConfigurationService.JMETER_HOME;
+        if (jmeterHomePath == null) {
+            throw new IllegalStateException("First set the path!");
+        }
         File jmeterHome = new File(jmeterHomePath);
         String slash = System.getProperty("file.separator");
 
@@ -73,8 +77,7 @@ public class JmeterService {
         if (existsProperties) {
             //JMeter Engine
             StandardJMeterEngine jmeter = new StandardJMeterEngine();
-            int identifier = new Random().nextInt(1000000);
-            String fileName = String.format("test%s", identifier);
+            String fileName = spec.getTestName();
 
             //JMeter initialization (properties, log levels, locale, etc)
             JMeterUtils.setJMeterHome(jmeterHome.getPath());
@@ -103,24 +106,23 @@ public class JmeterService {
             threadGroupHashTree.add(sampler, sampler.getHeaderManager());
 
             // save generated test plan to JMeter's .jmx file format
-            String jmxFile = System.getProperty("user.dir") + fileName + ".jmx";
+            String jmxFile = System.getProperty("user.dir") + spec.getTestName() + ".jmx";
             SaveService.saveTree(testPlanTree, new FileOutputStream(jmxFile));
 
             //add Summarizer output to get test progress in stdout like:
             // summary =      2 in   1.3s =    1.5/s Avg:   631 Min:   290 Max:   973 Err:     0 (0.00%)
             Summariser summer = buildSummariser();
 
-            // Store execution results into a .jtl file
-            ResultCollector logger = buildLogger(fileName, summer);
+            ResultCollector logger = buildLogger(spec.getTestName(), summer);
             testPlanTree.add(testPlanTree.getArray()[0], logger);
 
             // Run Test Plan
             jmeter.configure(testPlanTree);
 
-            Thread thread = new Thread(() -> {
-
+            ExecutorService executorService = Executors.newFixedThreadPool(1);
+            Future<?> submit = executorService.submit(() -> {
                 String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                repo.save(new JmeterResultData(date, fileName + ".jtl", fileName + ".jmx",
+                repo.save(new JmeterResultData(date, fileName + ".csv", fileName + ".jmx",
                     String.valueOf(spec.getNumberOfThreads()),
                     String.valueOf(spec.getRampUpPeriod()),
                     spec.getPath(),
@@ -128,7 +130,11 @@ public class JmeterService {
                 ));
 
                 jmeter.run();
-
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
                 ReportCreator.create(fileName + ".csv");
 
                 repo.save(new JmeterResultData(date, fileName + ".csv", fileName + ".jmx",
@@ -139,7 +145,13 @@ public class JmeterService {
                 ));
             });
 
-            thread.start();
+            try {
+                submit.get();
+                executorService.shutdown();
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+            // thread.start();
             log.info("Test started for a spec: " + spec);
         }
     }
@@ -158,7 +170,6 @@ public class JmeterService {
     private static ResultCollector buildLogger(String fileName, Summariser summer) {
         String logFile = DIR + "/" + fileName + ".csv";
         ResultCollector logger = new ResultCollector(summer);
-        ;
         logger.setFilename(logFile);
         return logger;
     }
@@ -178,7 +189,10 @@ public class JmeterService {
         threadGroup.setName("Thread Group");
         threadGroup.setNumThreads(spec.getNumberOfThreads());
         threadGroup.setRampUp(spec.getRampUpPeriod());
+        threadGroup.setScheduler(true);
+        threadGroup.setDuration(spec.getDuration());
         threadGroup.setSamplerController(loopController);
+        threadGroup.setIsSameUserOnNextIteration(true);
         threadGroup.setProperty(TestElement.TEST_CLASS, ThreadGroup.class.getName());
         threadGroup.setProperty(TestElement.GUI_CLASS, ThreadGroupGui.class.getName());
         return threadGroup;
@@ -187,8 +201,7 @@ public class JmeterService {
     @NotNull
     private static LoopController buildLoopController() {
         LoopController loopController = new LoopController();
-        loopController.setLoops(1);
-        loopController.setFirst(true);
+        loopController.setLoops(Integer.MAX_VALUE);
         loopController.setProperty(TestElement.TEST_CLASS, LoopController.class.getName());
         loopController.setProperty(TestElement.GUI_CLASS, LoopControlPanel.class.getName());
         loopController.initialize();
